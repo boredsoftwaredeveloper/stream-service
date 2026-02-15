@@ -29,7 +29,7 @@ supabase:
     secret: ${SUPABASE_JWT_SECRET}
 
 server:
-  port: ${SERVER_PORT:8082}
+  port: ${PORT:8082}
 
 management:
   endpoints:
