@@ -1,10 +1,15 @@
-name: Backend CI
+name: Stream Service CI/CD
 
 on:
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
 
 jobs:
   build:
@@ -25,3 +30,51 @@ jobs:
 
       - name: Build & test
         run: ./gradlew clean check
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/77695632782/locations/global/workloadIdentityPools/github/providers/github-provider
+          service_account: github-deployer@boredsoftwaredeveloper.iam.gserviceaccount.com
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg GITHUB_ACTOR=${{ github.actor }} \
+            --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            -t us-central1-docker.pkg.dev/boredsoftwaredeveloper/backend/stream-service:${{ github.sha }} .
+
+      - name: Push Docker image
+        run: |
+          docker push us-central1-docker.pkg.dev/boredsoftwaredeveloper/backend/stream-service:${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy stream-service \
+            --image us-central1-docker.pkg.dev/boredsoftwaredeveloper/backend/stream-service:${{ github.sha }} \
+            --region us-central1 \
+            --platform managed \
+            --allow-unauthenticated \
+            --min-instances=0 \
+            --memory=512Mi \
+            --cpu=1 \
+            --set-secrets SUPABASE_JWT_SECRET=SUPABASE_JWT_SECRET:latest \
+            --set-secrets DB_PASSWORD=DB_PASSWORD:latest \
+            --set-secrets DB_USER=DB_USER:latest

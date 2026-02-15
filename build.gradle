@@ -23,11 +23,19 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven {
+        name = 'GitHubPackages'
+        url = uri('https://maven.pkg.github.com/boredsoftwaredeveloper/common-lib')
+        credentials {
+            username = System.getenv('GITHUB_ACTOR') ?: findProperty('gpr.user') ?: ''
+            password = System.getenv('GITHUB_TOKEN') ?: findProperty('gpr.key') ?: ''
+        }
+    }
 }
 
 dependencies {
     // Common library
-    implementation 'dev.bored:common-lib'
+    implementation 'dev.bored:common-lib:0.0.1'
 
     // Spring
     implementation 'org.springframework.boot:spring-boot-starter-web'
