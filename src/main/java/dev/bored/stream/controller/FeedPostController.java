@@ -3,6 +3,7 @@ package dev.bored.stream.controller;
 import dev.bored.stream.dto.FeedPostDTO;
 import dev.bored.stream.service.FeedPostService;
 import lombok.AllArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -50,6 +51,7 @@ public class FeedPostController {
      * @param dto the post data to persist
      * @return the newly created {@link FeedPostDTO}
      */
+    @PreAuthorize("isAuthenticated()")
     @PostMapping
     public FeedPostDTO addPost(@RequestBody FeedPostDTO dto) {
         return feedPostService.addPost(dto);
@@ -62,6 +64,7 @@ public class FeedPostController {
      * @param dto    the updated post data
      * @return the updated {@link FeedPostDTO}
      */
+    @PreAuthorize("isAuthenticated()")
     @PutMapping("/{postId}")
     public FeedPostDTO updatePost(@PathVariable Long postId, @RequestBody FeedPostDTO dto) {
         return feedPostService.updatePost(postId, dto);
@@ -73,6 +76,7 @@ public class FeedPostController {
      * @param postId the id of the post to delete
      * @return {@code true} if successfully deleted
      */
+    @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/{postId}")
     public boolean deletePost(@PathVariable Long postId) {
         return feedPostService.deletePost(postId);

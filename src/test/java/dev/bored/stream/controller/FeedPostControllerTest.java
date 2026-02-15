@@ -14,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,7 +24,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -138,5 +139,47 @@ class FeedPostControllerTest {
 
         mockMvc.perform(delete("/api/v1/feed/999"))
                 .andExpect(status().isNotFound());
+    }
+
+    // ── Security: unauthenticated access tests ──────────────────────────
+
+    @Test
+    @WithAnonymousUser
+    void getAllPosts_ShouldBeAccessible_WhenUnauthenticated() throws Exception {
+        when(feedPostService.getAllPosts()).thenReturn(List.of(testDTO));
+
+        mockMvc.perform(get("/api/v1/feed"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void addPost_ShouldReturn401_WhenUnauthenticated() throws Exception {
+        mockMvc.perform(post("/api/v1/feed")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(testDTO)))
+                .andExpect(status().isUnauthorized());
+
+        verify(feedPostService, never()).addPost(any(FeedPostDTO.class));
+    }
+
+    @Test
+    @WithAnonymousUser
+    void updatePost_ShouldReturn401_WhenUnauthenticated() throws Exception {
+        mockMvc.perform(put("/api/v1/feed/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(testDTO)))
+                .andExpect(status().isUnauthorized());
+
+        verify(feedPostService, never()).updatePost(anyLong(), any(FeedPostDTO.class));
+    }
+
+    @Test
+    @WithAnonymousUser
+    void deletePost_ShouldReturn401_WhenUnauthenticated() throws Exception {
+        mockMvc.perform(delete("/api/v1/feed/1"))
+                .andExpect(status().isUnauthorized());
+
+        verify(feedPostService, never()).deletePost(anyLong());
     }
 }
