@@ -22,6 +22,8 @@ configurations {
 }
 
 repositories {
+    // Local first — so `./gradlew publishToMavenLocal` in common-lib is picked up instantly.
+    mavenLocal()
     mavenCentral()
     maven {
         name = 'GitHubPackages'
@@ -33,9 +35,15 @@ repositories {
     }
 }
 
+// Always fetch the latest SNAPSHOT of common-lib (no cache).
+configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+    resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
+}
+
 dependencies {
-    // Common library
-    implementation 'dev.bored:common-lib:0.0.1'
+    // Common library (version pinned in gradle.properties)
+    implementation "dev.bored:common-lib:${commonLibVersion}"
 
     // Spring
     implementation 'org.springframework.boot:spring-boot-starter-web'

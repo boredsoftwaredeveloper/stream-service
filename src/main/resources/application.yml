@@ -2,11 +2,20 @@ spring:
   application:
     name: stream-service
 
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   datasource:
-    url: jdbc:postgresql://db.zasidonntwaimayumbks.supabase.co:5432/postgres?sslmode=require
+    url: jdbc:postgresql://${SUPABASE_DB_HOST:db.zasidonntwaimayumbks.supabase.co}:${SUPABASE_DB_PORT:5432}/${SUPABASE_DB_NAME:postgres}?sslmode=require
     username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 10000
+      idle-timeout: 60000
+      leak-detection-threshold: 30000
 
   jpa:
     hibernate:
@@ -24,12 +33,20 @@ spring:
     default-property-inclusion: non_null
 
 # ── Supabase Auth ──────────────────────────────────────────────────
+# Validates Supabase ES256 JWTs via the project's JWKS endpoint.
 supabase:
-  jwt:
-    secret: ${SUPABASE_JWT_SECRET}
+  jwks-uri: ${SUPABASE_JWKS_URI:${SUPABASE_URL}/auth/v1/.well-known/jwks.json}
 
 server:
   port: ${PORT:8082}
+  shutdown: graceful
+
+# LOG_FORMAT env var flips structured JSON on in Cloud Run (set LOG_FORMAT=ecs).
+# Left empty locally so dev logs stay human-readable.
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:}
 
 management:
   endpoints:

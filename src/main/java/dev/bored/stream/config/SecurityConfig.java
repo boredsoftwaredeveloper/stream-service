@@ -9,21 +9,14 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
-
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 /**
  * Spring Security configuration for the Stream REST API.
- * <p>
- * Validates Supabase-issued JWTs (HS256) on every request. Read endpoints
- * are public so anyone can view the feed. Write endpoints require a
- * valid JWT — only the authenticated portfolio owner can mutate data.
- * </p>
  *
  * @author Bored Software Developer
  * @since 2026-02-15
@@ -33,21 +26,19 @@ import java.nio.charset.StandardCharsets;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Value("${supabase.jwt.secret}")
-    private String jwtSecret;
+    @Value("${supabase.jwks-uri}")
+    private String jwksUri;
 
-    /**
-     * Defines the HTTP security filter chain.
-     *
-     * @param http the {@link HttpSecurity} to configure
-     * @return the built {@link SecurityFilterChain}
-     * @throws Exception if configuration fails
-     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
+                .headers(headers -> headers
+                        .frameOptions(f -> f.deny())
+                        .contentTypeOptions(Customizer.withDefaults())
+                        .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+                        .httpStrictTransportSecurity(h -> h.includeSubDomains(true).maxAgeInSeconds(31_536_000)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
@@ -60,17 +51,10 @@ public class SecurityConfig {
                 .build();
     }
 
-    /**
-     * Creates a JWT decoder that validates Supabase tokens using HS256.
-     *
-     * @return the configured {@link JwtDecoder}
-     */
     @Bean
     public JwtDecoder jwtDecoder() {
-        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
-        SecretKeySpec key = new SecretKeySpec(keyBytes, "HmacSHA256");
-        return NimbusJwtDecoder.withSecretKey(key)
-                .macAlgorithm(MacAlgorithm.HS256)
+        return NimbusJwtDecoder.withJwkSetUri(jwksUri)
+                .jwsAlgorithm(SignatureAlgorithm.ES256)
                 .build();
     }
 }

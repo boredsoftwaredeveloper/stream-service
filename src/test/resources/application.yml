@@ -16,7 +16,7 @@ spring:
   flyway:
     enabled: false
 
-# Test JWT secret (HS256 — minimum 32 bytes)
+# Dummy JWKS URI — tests use @WithMockUser so the decoder is never invoked,
+# but the bean still needs a non-blank URI to construct.
 supabase:
-  jwt:
-    secret: test-secret-that-is-at-least-32-bytes-long
+  jwks-uri: http://localhost:0/.well-known/jwks.json
