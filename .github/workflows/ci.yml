@@ -82,7 +82,7 @@ jobs:
             --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.AR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --region ${{ env.GCP_REGION }} \
             --platform managed \
-            --allow-unauthenticated \
+            --no-allow-unauthenticated \
             --service-account=${{ env.RUNTIME_SA }} \
             --min-instances=0 \
             --max-instances=2 \
@@ -91,4 +91,4 @@ jobs:
             --concurrency=80 \
             --timeout=60 \
             --set-secrets=DB_USER=DB_USER:latest,DB_PASSWORD=DB_PASSWORD:latest,SUPABASE_URL=SUPABASE_URL:latest \
-            --set-env-vars=LOG_FORMAT=ecs
+            --set-env-vars=LOG_FORMAT=ecs,SUPABASE_DB_HOST=aws-1-ap-southeast-2.pooler.supabase.com
