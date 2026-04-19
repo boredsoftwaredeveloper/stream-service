@@ -54,6 +54,13 @@ dependencies {
     // Security (OAuth2 Resource Server — validates Supabase JWTs)
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
+    // Cache + Redis (optional) — read-through cache over service methods.
+    // RedisCacheManager kicks in when spring.data.redis.host is set (prod);
+    // without it (local dev / SPRING_AUTOCONFIGURE_EXCLUDE set), Spring
+    // falls back to ConcurrentMapCacheManager so @Cacheable still works.
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
     // Database & migration
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
