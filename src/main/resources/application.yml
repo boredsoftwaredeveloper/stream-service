@@ -5,6 +5,33 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
+  # ── Redis + Cache (optional) ─────────────────────────────────────
+  # When REDIS_HOST is set, Spring auto-configures Lettuce + RedisCacheManager
+  # with a 5-minute default TTL. Without it (local dev) we exclude the Redis
+  # auto-configs so no connection is attempted; @Cacheable still works via
+  # the fallback ConcurrentMapCacheManager.
+  autoconfigure:
+    exclude: ${SPRING_AUTOCONFIGURE_EXCLUDE:org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 4
+          max-idle: 4
+          min-idle: 0
+  cache:
+    redis:
+      time-to-live: 60s    # 1 min — feed changes more often than profile data
+      cache-null-values: false
+      use-key-prefix: true
+      key-prefix: "stream-svc::"
+
   datasource:
     url: jdbc:postgresql://${SUPABASE_DB_HOST:db.zasidonntwaimayumbks.supabase.co}:${SUPABASE_DB_PORT:5432}/${SUPABASE_DB_NAME:postgres}?sslmode=require
     username: ${DB_USER}

@@ -6,6 +6,9 @@ import dev.bored.stream.entity.FeedPost;
 import dev.bored.stream.mapper.FeedPostMapper;
 import dev.bored.stream.repository.FeedPostRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +38,7 @@ public class FeedPostService {
      * @return an ordered list of {@link FeedPostDTO} objects
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.FEED_POSTS_ALL, key = "'all'")
     public List<FeedPostDTO> getAllPosts() {
         return feedPostMapper.toDTOList(feedPostRepository.findAllByOrderBySortOrderAsc());
     }
@@ -47,6 +51,7 @@ public class FeedPostService {
      * @throws GenericException if no post exists with the given id (HTTP 404)
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.FEED_POST_BY_ID, key = "#postId")
     public FeedPostDTO getPostById(Long postId) {
         FeedPost entity = feedPostRepository.findById(postId)
                 .orElseThrow(() -> new GenericException(
@@ -61,6 +66,7 @@ public class FeedPostService {
      * @return the newly created {@link FeedPostDTO} with its generated id
      */
     @Transactional
+    @CacheEvict(value = CacheNames.FEED_POSTS_ALL, allEntries = true)
     public FeedPostDTO addPost(FeedPostDTO dto) {
         FeedPost entity = feedPostMapper.toEntity(dto);
         return feedPostMapper.toDTO(feedPostRepository.save(entity));
@@ -75,6 +81,10 @@ public class FeedPostService {
      * @throws GenericException if no post exists with the given id (HTTP 404)
      */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.FEED_POST_BY_ID, key = "#postId"),
+            @CacheEvict(value = CacheNames.FEED_POSTS_ALL, allEntries = true)
+    })
     public FeedPostDTO updatePost(Long postId, FeedPostDTO dto) {
         FeedPost existing = feedPostRepository.findById(postId)
                 .orElseThrow(() -> new GenericException(
@@ -102,6 +112,10 @@ public class FeedPostService {
      * @throws GenericException if no post exists with the given id (HTTP 404)
      */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.FEED_POST_BY_ID, key = "#postId"),
+            @CacheEvict(value = CacheNames.FEED_POSTS_ALL, allEntries = true)
+    })
     public boolean deletePost(Long postId) {
         if (feedPostRepository.existsById(postId)) {
             feedPostRepository.deleteById(postId);
