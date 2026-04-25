@@ -61,6 +61,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    // Caffeine — in-process, JVM-local cache used as a write-shield in front
+    // of Postgres / Redis. Latency in nanoseconds, no network hop, perfect for
+    // "did I do this expensive thing in the last N minutes?" gates.
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+
     // Database & migration
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
