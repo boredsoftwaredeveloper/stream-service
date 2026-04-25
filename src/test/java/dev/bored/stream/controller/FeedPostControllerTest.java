@@ -8,7 +8,9 @@ import dev.bored.stream.dto.CodeLineDTO;
 import dev.bored.stream.dto.CodeSegmentDTO;
 import dev.bored.stream.dto.CodeSnippetDTO;
 import dev.bored.stream.dto.FeedPostDTO;
+import dev.bored.stream.interceptor.JwtUserSyncInterceptor;
 import dev.bored.stream.service.FeedPostService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -42,6 +44,20 @@ class FeedPostControllerTest {
 
     @MockitoBean
     private FeedPostService feedPostService;
+
+    // WebMvcConfig is picked up by @WebMvcTest via the WebMvcConfigurer
+    // interface and requires the interceptor; mock it so the slice test
+    // doesn't need the full AppUserService / repository chain. By default
+    // a mocked HandlerInterceptor.preHandle returns false (Java's boolean
+    // default) which would block every request — stub it to true in
+    // @BeforeEach.
+    @MockitoBean
+    private JwtUserSyncInterceptor jwtUserSyncInterceptor;
+
+    @BeforeEach
+    void allowInterceptor() throws Exception {
+        when(jwtUserSyncInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+    }
 
     private final FeedPostDTO testDTO = FeedPostDTO.builder()
             .postId(1L)
