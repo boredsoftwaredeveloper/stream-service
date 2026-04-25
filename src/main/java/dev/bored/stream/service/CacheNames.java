@@ -9,5 +9,8 @@ public final class CacheNames {
     public static final String FEED_POSTS_ALL = "feed-posts-all";
     public static final String FEED_POST_BY_ID = "feed-post-by-id";
 
+    /** v2 post lookup by id, hydrated with author. */
+    public static final String POST_BY_ID = "post-by-id";
+
     private CacheNames() { }
 }

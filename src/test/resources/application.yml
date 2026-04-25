@@ -20,3 +20,9 @@ spring:
 # but the bean still needs a non-blank URI to construct.
 supabase:
   jwks-uri: http://localhost:0/.well-known/jwks.json
+
+# Stub author UUID for tests; controller tests that exercise the
+# @PreAuthorize SpEL match this exact string in @WithMockUser usernames
+# and SecurityMockMvcRequestPostProcessors.jwt() subjects.
+stream:
+  author-user-id: 00000000-0000-0000-0000-000000000099

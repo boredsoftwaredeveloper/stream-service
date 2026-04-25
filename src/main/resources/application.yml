@@ -67,6 +67,14 @@ spring:
 supabase:
   jwks-uri: ${SUPABASE_JWKS_URI:${SUPABASE_URL}/auth/v1/.well-known/jwks.json}
 
+# ── Stream-service business rules ─────────────────────────────────
+# Single-author model: only this Supabase user may POST/DELETE feed
+# posts. Compared at request time against the JWT `sub` claim via a
+# @PreAuthorize SpEL expression. No default — fail fast in prod if
+# unset.
+stream:
+  author-user-id: ${STREAM_AUTHOR_USER_ID}
+
 server:
   port: ${PORT:8082}
   shutdown: graceful
