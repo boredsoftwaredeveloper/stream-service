@@ -7,9 +7,12 @@ spring:
 
   # ── Redis + Cache (optional) ─────────────────────────────────────
   # When REDIS_HOST is set, Spring auto-configures Lettuce + RedisCacheManager
-  # with a 5-minute default TTL. Without it (local dev) we exclude the Redis
-  # auto-configs so no connection is attempted; @Cacheable still works via
-  # the fallback ConcurrentMapCacheManager.
+  # with a 1-day default TTL. Feed mutations call @CacheEvict so stale data
+  # isn't the issue — the long TTL just keeps warm entries from re-hitting
+  # the DB and eats into Upstash's 10K/day command budget less aggressively.
+  # Without REDIS_HOST (local dev) we exclude the Redis auto-configs so no
+  # connection is attempted; @Cacheable still works via the fallback
+  # ConcurrentMapCacheManager.
   autoconfigure:
     exclude: ${SPRING_AUTOCONFIGURE_EXCLUDE:org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration}
   data:
@@ -27,7 +30,7 @@ spring:
           min-idle: 0
   cache:
     redis:
-      time-to-live: 60s    # 1 min — feed changes more often than profile data
+      time-to-live: 1d     # 1 day — evicted on write; long TTL = fewer Upstash commands
       cache-null-values: false
       use-key-prefix: true
       key-prefix: "stream-svc::"
