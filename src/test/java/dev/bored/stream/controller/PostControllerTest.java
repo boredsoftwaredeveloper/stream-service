@@ -6,6 +6,7 @@ import dev.bored.common.exception.GenericException;
 import dev.bored.stream.config.SecurityConfig;
 import dev.bored.stream.config.StreamProperties;
 import dev.bored.stream.dto.CreatePostRequest;
+import dev.bored.stream.dto.FeedPageDTO;
 import dev.bored.stream.dto.PostAuthorDTO;
 import dev.bored.stream.dto.PostDTO;
 import dev.bored.stream.exception.AuthorizationExceptionHandler;
@@ -22,10 +23,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
-
-// `import java.util.UUID;` is used by the AUTHOR_UUID literals below.
-// Keep the explicit import so future readers don't wonder.
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -220,5 +219,49 @@ class PostControllerTest {
         mockMvc.perform(delete("/api/v1/feed/v2/99")
                         .with(jwt().jwt(j -> j.subject(AUTHOR_UUID))))
                 .andExpect(status().isNotFound());
+    }
+
+    // ── listFeed ────────────────────────────────────────────────────────
+
+    @Test
+    void listFeed_publicNoCursor_returnsPage() throws Exception {
+        FeedPageDTO body = FeedPageDTO.builder()
+                .items(List.of(sampleDTO()))
+                .nextCursor("eyJ0cyI6Li4ufQ")
+                .build();
+        when(postService.listChronological(null, null)).thenReturn(body);
+
+        mockMvc.perform(get("/api/v1/feed/v2").with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items[0].postId").value(42))
+                .andExpect(jsonPath("$.nextCursor").value("eyJ0cyI6Li4ufQ"));
+    }
+
+    @Test
+    void listFeed_passesCursorAndSizeThrough() throws Exception {
+        FeedPageDTO body = FeedPageDTO.builder().items(List.of()).nextCursor(null).build();
+        when(postService.listChronological("abc", 5)).thenReturn(body);
+
+        mockMvc.perform(get("/api/v1/feed/v2")
+                        .param("cursor", "abc")
+                        .param("size", "5")
+                        .with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.nextCursor").doesNotExist());
+
+        verify(postService).listChronological("abc", 5);
+    }
+
+    @Test
+    void listFeed_malformedCursor_returns400() throws Exception {
+        when(postService.listChronological(eq("garbage"), any()))
+                .thenThrow(new GenericException("Malformed cursor", HttpStatus.BAD_REQUEST));
+
+        mockMvc.perform(get("/api/v1/feed/v2")
+                        .param("cursor", "garbage")
+                        .with(anonymous()))
+                .andExpect(status().isBadRequest());
     }
 }

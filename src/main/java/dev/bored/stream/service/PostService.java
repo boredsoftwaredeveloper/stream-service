@@ -2,6 +2,7 @@ package dev.bored.stream.service;
 
 import dev.bored.common.exception.GenericException;
 import dev.bored.stream.dto.CreatePostRequest;
+import dev.bored.stream.dto.FeedPageDTO;
 import dev.bored.stream.dto.PostDTO;
 import dev.bored.stream.entity.AppUser;
 import dev.bored.stream.entity.Post;
@@ -11,13 +12,19 @@ import dev.bored.stream.repository.PostRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Business logic for {@code post} CRUD.
@@ -41,6 +48,10 @@ import java.util.UUID;
 @Service
 @AllArgsConstructor
 public class PostService {
+
+    /** Feed-list size bounds. Default 20, hard cap 100. */
+    static final int DEFAULT_PAGE_SIZE = 20;
+    static final int MAX_PAGE_SIZE = 100;
 
     private final PostRepository postRepository;
     private final AppUserRepository appUserRepository;
@@ -118,5 +129,91 @@ public class PostService {
                         "Author row missing for user_id " + authorId
                                 + " — did the user-sync interceptor fire?",
                         HttpStatus.INTERNAL_SERVER_ERROR));
+    }
+
+    /**
+     * Returns one page of the chronological feed (newest first), using
+     * keyset pagination.
+     *
+     * <p><b>Why keyset and not offset?</b> Classic offset pagination
+     * ({@code LIMIT 20 OFFSET 9000}) makes Postgres count and discard
+     * 9,000 rows on every page-9001 request. Page cost grows linearly
+     * with how deep the user scrolls. Keyset pagination, by contrast,
+     * uses the index to seek directly to the cursor boundary — page
+     * cost stays {@code O(size)} no matter how deep we are.</p>
+     *
+     * <p><b>The +1 trick:</b> we ask the DB for {@code size + 1} rows,
+     * keep the first {@code size}, and use the existence of the extra
+     * row as our {@code hasMore} signal. This is one query instead of
+     * two (the alternative being a {@code SELECT COUNT(*)} alongside
+     * the page query, which would walk every live row).</p>
+     *
+     * <p><b>Author hydration:</b> after fetching the page we collect
+     * the distinct author ids and load them in a single
+     * {@code findAllById} call. For a single-author site that's one
+     * extra row per page — trivial. The pattern generalises if we ever
+     * relax the single-author rule.</p>
+     *
+     * @param cursorToken opaque cursor from the previous page, or null/blank for the first
+     * @param requestedSize page size; clamped to {@code [1, MAX_PAGE_SIZE]}; null/non-positive → default
+     * @return one page of posts plus a {@code nextCursor} when more exist
+     */
+    @Transactional(readOnly = true)
+    public FeedPageDTO listChronological(String cursorToken, Integer requestedSize) {
+        int size = clampSize(requestedSize);
+        // The +1 trick: ask for one more than we'll return so we can
+        // detect "hasMore" without a separate COUNT query.
+        int fetchSize = size + 1;
+
+        List<Post> rows = (cursorToken == null || cursorToken.isBlank())
+                ? postRepository.findChronoFirstPage(PageRequest.of(0, fetchSize))
+                : fetchAfterCursor(cursorToken, fetchSize);
+
+        boolean hasMore = rows.size() > size;
+        if (hasMore) {
+            rows = rows.subList(0, size);
+        }
+
+        if (rows.isEmpty()) {
+            return FeedPageDTO.builder().items(List.of()).nextCursor(null).build();
+        }
+
+        // Batch-load authors in a single query, then map per row.
+        Set<UUID> authorIds = rows.stream()
+                .map(Post::getAuthorId)
+                .collect(Collectors.toSet());
+        Map<UUID, AppUser> authors = appUserRepository.findAllById(authorIds).stream()
+                .collect(Collectors.toMap(AppUser::getUserId, Function.identity()));
+
+        List<PostDTO> items = rows.stream()
+                .map(p -> postMapper.toDTO(p, authors.get(p.getAuthorId())))
+                .toList();
+
+        // Cursor for the next page is the (created_at, post_id) of the
+        // LAST row on this page — that's the boundary the next request
+        // will sit strictly below.
+        String nextCursor = null;
+        if (hasMore) {
+            Post last = rows.get(rows.size() - 1);
+            nextCursor = FeedCursor.encode(last.getCreatedAt(), last.getPostId());
+        }
+
+        return FeedPageDTO.builder().items(items).nextCursor(nextCursor).build();
+    }
+
+    /** Decodes the cursor and runs the keyset query. */
+    private List<Post> fetchAfterCursor(String cursorToken, int fetchSize) {
+        FeedCursor cursor = FeedCursor.decode(cursorToken);
+        return postRepository.findChronoPageAfter(
+                cursor.ts(), cursor.postId(), PageRequest.of(0, fetchSize));
+    }
+
+    /**
+     * Bounds the requested page size to {@code [1, MAX_PAGE_SIZE]}.
+     * {@code null} or non-positive means "give me the default."
+     */
+    private static int clampSize(Integer requested) {
+        if (requested == null || requested <= 0) return DEFAULT_PAGE_SIZE;
+        return Math.min(requested, MAX_PAGE_SIZE);
     }
 }

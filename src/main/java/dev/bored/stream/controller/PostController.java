@@ -1,6 +1,7 @@
 package dev.bored.stream.controller;
 
 import dev.bored.stream.dto.CreatePostRequest;
+import dev.bored.stream.dto.FeedPageDTO;
 import dev.bored.stream.dto.PostDTO;
 import dev.bored.stream.service.PostService;
 import jakarta.validation.Valid;
@@ -63,6 +64,25 @@ public class PostController {
     @GetMapping("/{postId}")
     public PostDTO getPostById(@PathVariable Long postId) {
         return postService.getPostById(postId);
+    }
+
+    /**
+     * Returns one keyset-paginated page of the chronological feed.
+     *
+     * <p>Both query parameters are optional. {@code cursor} omitted →
+     * first page. {@code size} omitted → default page size. Sizes
+     * larger than the server cap are silently clamped, not rejected.</p>
+     *
+     * @param cursor opaque cursor from the previous page's
+     *               {@code nextCursor} field; null/blank for the first page
+     * @param size   requested page size; default 20, max 100
+     * @return one page plus the next cursor (or null if exhausted)
+     */
+    @GetMapping
+    public FeedPageDTO listFeed(
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer size) {
+        return postService.listChronological(cursor, size);
     }
 
     /**
